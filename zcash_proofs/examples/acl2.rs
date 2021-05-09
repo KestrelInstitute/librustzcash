@@ -245,7 +245,7 @@ fn main() {
             };
             circuit.synthesize(&mut cs).unwrap();
         }
-        Some("boolean") => {
+        Some("mycircuit") => {
             make_my_circuit(&mut cs);
         }
         _ => usage(),
