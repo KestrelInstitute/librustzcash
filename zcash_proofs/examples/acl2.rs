@@ -168,7 +168,16 @@ impl ConstraintSystem<Scalar> for Acl2Cs {
 }
 
 fn usage() {
-    panic!("Usage: acl2 [sapling-spend | sapling-output | sprout]");
+    panic!("Usage: acl2 [sapling-spend | sapling-output | sprout | ...]");
+}
+
+fn make_my_circuit (cs: &mut Acl2Cs) -> () {
+    let x = bellman::gadgets::boolean::AllocatedBit::alloc
+        (&mut cs.namespace(|| "x"), None).unwrap();
+    let y = bellman::gadgets::boolean::AllocatedBit::alloc
+        (&mut cs.namespace(|| "y"), None).unwrap();
+    bellman::gadgets::boolean::AllocatedBit::xor
+        (&mut cs.namespace(|| "z"), &x, &y).unwrap();
 }
 
 fn main() {
@@ -235,6 +244,9 @@ fn main() {
                 rt: None,
             };
             circuit.synthesize(&mut cs).unwrap();
+        }
+        Some("boolean") => {
+            make_my_circuit(&mut cs);
         }
         _ => usage(),
     }
