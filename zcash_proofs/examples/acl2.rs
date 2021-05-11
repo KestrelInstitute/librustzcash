@@ -171,13 +171,36 @@ fn usage() {
     panic!("Usage: acl2 [sapling-spend | sapling-output | sprout | ...]");
 }
 
-fn make_my_circuit (cs: &mut Acl2Cs) -> () {
+fn make_xor(cs: &mut Acl2Cs) -> () {
     let x = bellman::gadgets::boolean::AllocatedBit::alloc
         (&mut cs.namespace(|| "x"), None).unwrap();
     let y = bellman::gadgets::boolean::AllocatedBit::alloc
         (&mut cs.namespace(|| "y"), None).unwrap();
     bellman::gadgets::boolean::AllocatedBit::xor
         (&mut cs.namespace(|| "z"), &x, &y).unwrap();
+}
+
+fn make_affine_ctedwards(cs: &mut Acl2Cs) -> () {
+    let u = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "u"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let v = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "v"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let u2 = u.square(cs.namespace(|| "u^2")).unwrap();
+    let v2 = v.square(cs.namespace(|| "v^2")).unwrap();
+    let u2v2 = u2.mul(cs.namespace(|| "u^2 v^2"), &v2).unwrap();
+    let one = Acl2Cs::one();
+    const EDWARDS_D: Scalar = Scalar::from_raw([
+        0x0106_5fd6_d634_3eb1,
+        0x292d_7f6d_3757_9d26,
+        0xf5fd_9207_e6bd_7fd4,
+        0x2a93_18e7_4bfa_2b48,
+    ]);
+    cs.enforce(
+        || "on_curve_check",
+        |lc| lc - u2.get_variable() + v2.get_variable(),
+        |lc| lc + one,
+        |lc| lc + one + (EDWARDS_D, u2v2.get_variable()),
+    );
 }
 
 fn main() {
@@ -245,8 +268,11 @@ fn main() {
             };
             circuit.synthesize(&mut cs).unwrap();
         }
-        Some("mycircuit") => {
-            make_my_circuit(&mut cs);
+        Some("xor") => {
+            make_xor(&mut cs);
+        }
+        Some("affine-ctedwards") => {
+            make_affine_ctedwards(&mut cs);
         }
         _ => usage(),
     }
