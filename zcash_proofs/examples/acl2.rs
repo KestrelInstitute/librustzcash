@@ -180,27 +180,18 @@ fn make_xor(cs: &mut Acl2Cs) -> () {
         (&mut cs.namespace(|| "z"), &x, &y).unwrap();
 }
 
-fn make_affine_ctedwards(cs: &mut Acl2Cs) -> () {
-    let u = bellman::gadgets::num::AllocatedNum::alloc
-        (&mut cs.namespace(|| "u"), || Ok(bls12_381::Scalar::zero())).unwrap();
-    let v = bellman::gadgets::num::AllocatedNum::alloc
-        (&mut cs.namespace(|| "v"), || Ok(bls12_381::Scalar::zero())).unwrap();
-    let u2 = u.square(cs.namespace(|| "u^2")).unwrap();
-    let v2 = v.square(cs.namespace(|| "v^2")).unwrap();
-    let u2v2 = u2.mul(cs.namespace(|| "u^2 v^2"), &v2).unwrap();
-    let one = Acl2Cs::one();
-    const EDWARDS_D: Scalar = Scalar::from_raw([
-        0x0106_5fd6_d634_3eb1,
-        0x292d_7f6d_3757_9d26,
-        0xf5fd_9207_e6bd_7fd4,
-        0x2a93_18e7_4bfa_2b48,
-    ]);
-    cs.enforce(
-        || "on_curve_check",
-        |lc| lc - u2.get_variable() + v2.get_variable(),
-        |lc| lc + one,
-        |lc| lc + one + (EDWARDS_D, u2v2.get_variable()),
-    );
+fn make_pedersen(mut cs: &mut Acl2Cs, nbits: u32) -> () {
+    let mut bits = vec![];
+    for i in 0..nbits {
+        let bit = bellman::gadgets::boolean::AllocatedBit::alloc
+            (&mut cs.namespace(|| format!("bit{}", i)), None).unwrap();
+        bits.push(bellman::gadgets::boolean::Boolean::Is(bit));
+    }
+    zcash_proofs::circuit::pedersen_hash::pedersen_hash
+        (&mut cs,
+         zcash_primitives::pedersen_hash::Personalization::NoteCommitment,
+         &bits).unwrap();
+
 }
 
 fn main() {
@@ -272,7 +263,36 @@ fn main() {
             make_xor(&mut cs);
         }
         Some("affine-ctedwards") => {
-            make_affine_ctedwards(&mut cs);
+            zcash_proofs::circuit::ecc::EdwardsPoint::witness
+                (&mut cs, None).unwrap();
+        }
+        // Some("ctedwards-montgomery") => { // not working:
+        //     zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked
+        //         (bellman::gadgets::num::AllocatedNum::alloc
+        //          (&mut cs.namespace(|| "x"),
+        //           || Ok(bls12_381::Scalar::zero())).unwrap(),
+        //          bellman::gadgets::num::AllocatedNum::alloc
+        //          (&mut cs.namespace(|| "y"),
+        //           || Ok(bls12_381::Scalar::zero())).unwrap())
+        //         .into_edwards(&mut cs).unwrap();
+        // }
+        Some("pedersen3") => {
+            make_pedersen(&mut cs, 3);
+        }
+        Some("pedersen6") => {
+            make_pedersen(&mut cs, 6);
+        }
+        Some("pedersen9") => {
+            make_pedersen(&mut cs, 9);
+        }
+        Some("pedersen12") => {
+            make_pedersen(&mut cs, 12);
+        }
+        Some("pedersen15") => {
+            make_pedersen(&mut cs, 15);
+        }
+        Some("pedersen576") => {
+            make_pedersen(&mut cs, 576);
         }
         _ => usage(),
     }
