@@ -191,7 +191,18 @@ fn make_pedersen(mut cs: &mut Acl2Cs, nbits: u32) -> () {
         (&mut cs,
          zcash_primitives::pedersen_hash::Personalization::NoteCommitment,
          &bits).unwrap();
+}
 
+fn make_blake2s(mut cs: &mut Acl2Cs, nbits: u32) -> () {
+    let mut bits = vec![];
+    for i in 0..nbits {
+        let bit = bellman::gadgets::boolean::AllocatedBit::alloc
+            (&mut cs.namespace(|| format!("bit{}", i)), None).unwrap();
+        bits.push(bellman::gadgets::boolean::Boolean::Is(bit));
+    }
+    bellman::gadgets::blake2s::blake2s
+        (&mut cs, &bits, zcash_primitives::constants::PRF_NF_PERSONALIZATION)
+        .unwrap();
 }
 
 fn main() {
@@ -293,6 +304,9 @@ fn main() {
         }
         Some("pedersen576") => {
             make_pedersen(&mut cs, 576);
+        }
+        Some("blake2s") => {
+            make_blake2s(&mut cs, 256);
         }
         _ => usage(),
     }
