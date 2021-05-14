@@ -285,6 +285,9 @@ fn main() {
         //           || Ok(bls12_381::Scalar::zero())).unwrap())
         //         .into_edwards(&mut cs).unwrap();
         // }
+        Some("pedersen1") => {
+            make_pedersen(&mut cs, 1);
+        }
         Some("pedersen3") => {
             make_pedersen(&mut cs, 3);
         }
