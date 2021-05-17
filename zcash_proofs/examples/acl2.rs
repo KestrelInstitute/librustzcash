@@ -29,7 +29,12 @@ fn compute_path(ns: &[String], this: String) -> String {
 
 /// Converts a bellman path to an ACL2 variable name.
 fn acl2ize(s: &str) -> String {
-    s.replace(' ', "_").replace('/', "_")
+    s.replace(' ', "_")
+    // The following was the original code,
+    // but it maps both space and slash to underscore.
+    // We use instead the code above, which preserves slashes,
+    // which are legal in ACL2 symbols.
+    // s.replace(' ', "_").replace('/', "_")
 }
 
 struct Acl2Cs {
