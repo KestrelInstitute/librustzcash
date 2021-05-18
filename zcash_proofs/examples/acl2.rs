@@ -7,6 +7,9 @@ use zcash_proofs::circuit::{
     sprout::{JSInput, JSOutput, JoinSplit},
 };
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 fn compute_path(ns: &[String], this: String) -> String {
     if this.chars().any(|a| a == '/') {
         panic!("'/' is not allowed in names");
@@ -172,11 +175,217 @@ impl ConstraintSystem<Scalar> for Acl2Cs {
     }
 }
 
+/// A tree of constraints.
+struct Tree {
+    parent: Option<Rc<RefCell<Tree>>>,
+    children: Vec<Rc<RefCell<Tree>>>,
+    constraints: Vec<(LinearCombination<Scalar>,
+                      LinearCombination<Scalar>,
+                      LinearCombination<Scalar>)>
+}
+
+impl Tree {
+
+    fn new_root() -> Self {
+        Tree {
+            parent: None,
+            children: vec![],
+            constraints: vec![]
+        }
+    }
+
+    fn new_child(parent: Rc<RefCell<Tree>>) -> Self {
+        Tree {
+            parent: Some(parent),
+            children: vec![],
+            constraints: vec![]
+        }
+    }
+
+}
+
+/// A tree-structured constraint system.
+struct TreeCs {
+    current_namespace: Vec<String>,
+    inputs: Vec<String>,
+    aux: Vec<String>,
+    tree: Rc<RefCell<Tree>>,
+    current: Rc<RefCell<Tree>>
+}
+
+impl TreeCs {
+
+    fn new() -> Self {
+        let tree = Rc::new(RefCell::new(Tree::new_root()));
+        let current = tree.clone();
+        TreeCs {
+            current_namespace: vec![],
+            inputs: vec!["1".into()],
+            aux: vec![],
+            tree: tree,
+            current: current
+        }
+    }
+
+}
+
+impl Tree {
+
+    fn fmt(&self,
+           f: &mut fmt::Formatter<'_>,
+           inputs: &Vec<String>,
+           aux: &Vec<String>)
+           -> fmt::Result {
+        let write_lc =
+            |f: &mut fmt::Formatter<'_>, name, lc: &LinearCombination<Scalar>| {
+                write!(f, "({}", name)?;
+                for (var, coeff) in lc.as_ref() {
+                    write!(
+                        f,
+                        " ({} {})",
+                        coeff.to_string().replace("0x", "#x"),
+                        match var.get_unchecked() {
+                            Index::Input(i) => &inputs[i],
+                            Index::Aux(i) => &aux[i],
+                        }
+                    )?;
+                }
+                write!(f, ")")?;
+                Ok(())
+            };
+
+        write!(f, "(TREE")?;
+
+        write!(f, " (CONSTRAINTS ")?;
+        for (a, b, c) in &self.constraints {
+            write!(f, "(")?;
+            write_lc(f, "A", a)?;
+            write_lc(f, "B", b)?;
+            write_lc(f, "C", c)?;
+            writeln!(f, ")")?;
+        }
+        write!(f, ")")?;
+        for child in &self.children {
+            write!(f, " ");
+            (*child).borrow().fmt(f, inputs, aux);
+        }
+        write!(f, ") ")?;
+        Ok(())
+    }
+
+}
+
+impl fmt::Display for TreeCs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(")?;
+
+        // Hard-code the BLS12-381 scalar modulus.
+        // In acl2 hex integers start with `#x`.
+        writeln!(
+            f,
+            "(PRIME . #x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001)"
+        )?;
+
+        // Circuit variables
+        write!(f, "(VARS")?;
+        // ACL2 format doesn't include the constant 1.
+        for var in self.inputs.iter().skip(1) {
+            write!(f, " {}", var)?;
+        }
+        for var in &self.aux {
+            write!(f, " {}", var)?;
+        }
+        writeln!(f, ")")?;
+
+        // Constraints.
+        (*self.tree).borrow().fmt(f, &self.inputs, &self.aux);
+
+        writeln!(f, ")")
+    }
+}
+
+impl ConstraintSystem<Scalar> for TreeCs {
+    type Root = Self;
+
+    fn alloc<F, A, AR>(&mut self, annotation: A, _: F)
+                       -> Result<Variable, SynthesisError>
+    where
+        F: FnOnce() -> Result<Scalar, SynthesisError>,
+        A: FnOnce() -> AR,
+        AR: Into<String>,
+    {
+        let index = self.aux.len();
+        let path = compute_path(&self.current_namespace, annotation().into());
+        self.aux.push(acl2ize(&path));
+        Ok(Variable::new_unchecked(Index::Aux(index)))
+    }
+
+    fn alloc_input<F, A, AR>(&mut self, annotation: A, _: F)
+                             -> Result<Variable, SynthesisError>
+    where
+        F: FnOnce() -> Result<Scalar, SynthesisError>,
+        A: FnOnce() -> AR,
+        AR: Into<String>,
+    {
+        let index = self.inputs.len();
+        let path = compute_path(&self.current_namespace, annotation().into());
+        self.inputs.push(acl2ize(&path));
+        Ok(Variable::new_unchecked(Index::Input(index)))
+    }
+
+    fn enforce<A, AR, LA, LB, LC>(&mut self, _: A, a: LA, b: LB, c: LC)
+    where
+        A: FnOnce() -> AR,
+        AR: Into<String>,
+        LA: FnOnce(LinearCombination<Scalar>) -> LinearCombination<Scalar>,
+        LB: FnOnce(LinearCombination<Scalar>) -> LinearCombination<Scalar>,
+        LC: FnOnce(LinearCombination<Scalar>) -> LinearCombination<Scalar>,
+    {
+        let a = a(LinearCombination::zero());
+        let b = b(LinearCombination::zero());
+        let c = c(LinearCombination::zero());
+        (*self.current).borrow_mut().constraints.push((a, b, c));
+    }
+
+    fn push_namespace<NR, N>(&mut self, name_fn: N)
+    where
+        NR: Into<String>,
+        N: FnOnce() -> NR,
+    {
+        let name = name_fn().into();
+        self.current_namespace.push(name);
+        let tree = Rc::new(RefCell::new(Tree::new_child(self.current.clone())));
+        (*self.current).borrow_mut().children.push(tree.clone());
+        self.current = tree;
+    }
+
+    fn pop_namespace(&mut self) {
+        assert!(self.current_namespace.pop().is_some());
+        let parent = (*self.current).borrow().parent.clone();
+        match parent {
+            Some(parent) => {
+                self.current = parent.clone();
+            }
+            None => {
+            }
+        }
+    }
+
+    fn get_root(&mut self) -> &mut Self::Root {
+        self
+    }
+
+}
+
 fn usage() {
     panic!("Usage: acl2 [sapling-spend | sapling-output | sprout | ...]");
 }
 
-fn make_xor(cs: &mut Acl2Cs) -> () {
+// fn make_xor(cs: &mut TreeCs) -> () {
+fn make_xor<CS>(mut cs: CS) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
     let x = bellman::gadgets::boolean::AllocatedBit::alloc
         (&mut cs.namespace(|| "x"), None).unwrap();
     let y = bellman::gadgets::boolean::AllocatedBit::alloc
@@ -185,7 +394,10 @@ fn make_xor(cs: &mut Acl2Cs) -> () {
         (&mut cs.namespace(|| "z"), &x, &y).unwrap();
 }
 
-fn make_pedersen(mut cs: &mut Acl2Cs, nbits: u32) -> () {
+fn make_pedersen<CS>(mut cs: CS, nbits: u32) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
     let mut bits = vec![];
     for i in 0..nbits {
         let bit = bellman::gadgets::boolean::AllocatedBit::alloc
@@ -198,7 +410,10 @@ fn make_pedersen(mut cs: &mut Acl2Cs, nbits: u32) -> () {
          &bits).unwrap();
 }
 
-fn make_blake2s(mut cs: &mut Acl2Cs, nbits: u32, pers: &[u8]) -> () {
+fn make_blake2s<CS>(mut cs: CS, nbits: u32, pers: &[u8]) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
     let mut bits = vec![];
     for i in 0..nbits {
         let bit = bellman::gadgets::boolean::AllocatedBit::alloc
@@ -211,7 +426,8 @@ fn make_blake2s(mut cs: &mut Acl2Cs, nbits: u32, pers: &[u8]) -> () {
 fn main() {
     let circuit = env::args().nth(1);
 
-    let mut cs = Acl2Cs::new();
+    // let mut cs = Acl2Cs::new();
+    let mut cs = TreeCs::new();
 
     match circuit.as_ref().map(|s| s.as_str()) {
         Some("sapling-spend") => {
