@@ -43,7 +43,7 @@ where
             let c = bits.next().unwrap_or(&boolean_false);
 
             let tmp = lookup3_xy_with_conditional_negation(
-                cs.namespace(|| format!("segment {}, window {}", segment_i, window_i)),
+                cs.namespace(|| format!("segment {} window {}", segment_i, window_i)),
                 &[a.clone(), b.clone(), c.clone()],
                 &segment_windows[0],
             )?;
@@ -57,7 +57,7 @@ where
                 Some(ref mut segment_result) => {
                     *segment_result = tmp.add(
                         cs.namespace(|| {
-                            format!("addition of segment {}, window {}", segment_i, window_i)
+                            format!("addition of segment {} window {}", segment_i, window_i)
                         }),
                         segment_result,
                     )?;
