@@ -431,10 +431,16 @@ where
 }
 
 fn main() {
-    let circuit = env::args().nth(1);
+    let format = env::args().nth(1);
+    let circuit = env::args().nth(2);
 
-    // let mut cs = Acl2Cs::new();
-    let mut cs = TreeCs::new();
+    let mut rcs = Acl2Cs::new();
+    let mut tcs = TreeCs::new();
+
+    let r1cs = match format.as_ref().map(|s| s.as_str()) {
+        Some("r1cs") => { true }
+        _ => { false }
+    };
 
     match circuit.as_ref().map(|s| s.as_str()) {
         Some("sapling-spend") => {
@@ -447,7 +453,11 @@ fn main() {
                 auth_path: vec![None; 32],
                 anchor: None,
             };
-            circuit.synthesize(&mut cs).unwrap();
+            if r1cs {
+                circuit.synthesize(&mut rcs).unwrap();
+            } else {
+                circuit.synthesize(&mut tcs).unwrap();
+            }
         }
         Some("sapling-output") => {
             let circuit = Output {
@@ -456,7 +466,11 @@ fn main() {
                 commitment_randomness: None,
                 esk: None,
             };
-            circuit.synthesize(&mut cs).unwrap();
+            if r1cs {
+                circuit.synthesize(&mut rcs).unwrap();
+            } else {
+                circuit.synthesize(&mut tcs).unwrap();
+            }
         }
         Some("sprout") => {
             let circuit = JoinSplit {
@@ -494,14 +508,27 @@ fn main() {
                 ],
                 rt: None,
             };
-            circuit.synthesize(&mut cs).unwrap();
+            if r1cs {
+                circuit.synthesize(&mut rcs).unwrap();
+            } else {
+                circuit.synthesize(&mut tcs).unwrap();
+            }
         }
         Some("xor") => {
-            make_xor(&mut cs);
+            if r1cs {
+                make_xor(&mut rcs);
+            } else {
+                make_xor(&mut tcs);
+            }
         }
         Some("affine-ctedwards") => {
-            zcash_proofs::circuit::ecc::EdwardsPoint::witness
-                (&mut cs, None).unwrap();
+            if r1cs {
+                zcash_proofs::circuit::ecc::EdwardsPoint::witness
+                    (&mut rcs, None).unwrap();
+            } else {
+                zcash_proofs::circuit::ecc::EdwardsPoint::witness
+                    (&mut tcs, None).unwrap();
+            }
         }
         // Some("ctedwards-montgomery") => { // not working:
         //     zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked
@@ -514,36 +541,78 @@ fn main() {
         //         .into_edwards(&mut cs).unwrap();
         // }
         Some("pedersen1") => {
-            make_pedersen(&mut cs, 1);
+            if r1cs {
+                make_pedersen(&mut rcs, 1);
+            } else {
+                make_pedersen(&mut tcs, 1);
+            }
         }
         Some("pedersen3") => {
-            make_pedersen(&mut cs, 3);
+            if r1cs {
+                make_pedersen(&mut rcs, 3);
+            } else {
+                make_pedersen(&mut tcs, 3);
+            }
         }
         Some("pedersen6") => {
-            make_pedersen(&mut cs, 6);
+            if r1cs {
+                make_pedersen(&mut rcs, 6);
+            } else {
+                make_pedersen(&mut tcs, 6);
+            }
         }
         Some("pedersen9") => {
-            make_pedersen(&mut cs, 9);
+            if r1cs {
+                make_pedersen(&mut rcs, 9);
+            } else {
+                make_pedersen(&mut tcs, 9);
+            }
         }
         Some("pedersen12") => {
-            make_pedersen(&mut cs, 12);
+            if r1cs {
+                make_pedersen(&mut rcs, 12);
+            } else {
+                make_pedersen(&mut tcs, 12);
+            }
         }
         Some("pedersen15") => {
-            make_pedersen(&mut cs, 15);
+            if r1cs {
+                make_pedersen(&mut rcs, 15);
+            } else {
+                make_pedersen(&mut tcs, 15);
+            }
         }
         Some("pedersen576") => {
-            make_pedersen(&mut cs, 576);
+            if r1cs {
+                make_pedersen(&mut rcs, 576);
+            } else {
+                make_pedersen(&mut tcs, 576);
+            }
         }
         Some("blake2s-nf") => {
-            make_blake2s (&mut cs, 512,
-                          zcash_primitives::constants::PRF_NF_PERSONALIZATION);
+            if r1cs {
+                make_blake2s (&mut rcs, 512,
+                              zcash_primitives::constants::PRF_NF_PERSONALIZATION);
+            } else {
+                make_blake2s (&mut tcs, 512,
+                              zcash_primitives::constants::PRF_NF_PERSONALIZATION);
+            }
         }
         Some("blake2s-ivk") => {
-            make_blake2s (&mut cs, 512,
-                          zcash_primitives::constants::CRH_IVK_PERSONALIZATION);
+            if r1cs {
+                make_blake2s (&mut rcs, 512,
+                              zcash_primitives::constants::CRH_IVK_PERSONALIZATION);
+            } else {
+                make_blake2s (&mut tcs, 512,
+                              zcash_primitives::constants::CRH_IVK_PERSONALIZATION);
+            }
         }
         _ => usage(),
     }
 
-    print!("{}", cs);
+    if r1cs {
+        print!("{}", rcs);
+    } else {
+        print!("{}", tcs);
+    }
 }
