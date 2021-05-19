@@ -178,6 +178,7 @@ impl ConstraintSystem<Scalar> for Acl2Cs {
 /// A tree of constraints.
 struct Tree {
     parent: Option<Rc<RefCell<Tree>>>,
+    name: String,
     children: Vec<Rc<RefCell<Tree>>>,
     constraints: Vec<(LinearCombination<Scalar>,
                       LinearCombination<Scalar>,
@@ -189,14 +190,16 @@ impl Tree {
     fn new_root() -> Self {
         Tree {
             parent: None,
+            name: String::from(""),
             children: vec![],
             constraints: vec![]
         }
     }
 
-    fn new_child(parent: Rc<RefCell<Tree>>) -> Self {
+    fn new_child(parent: Rc<RefCell<Tree>>, name: String) -> Self {
         Tree {
             parent: Some(parent),
+            name: name,
             children: vec![],
             constraints: vec![]
         }
@@ -254,7 +257,7 @@ impl Tree {
                 Ok(())
             };
 
-        write!(f, "(TREE")?;
+        write!(f, "(\"{}\"", self.name)?;
 
         write!(f, " (CONSTRAINTS ")?;
         for (a, b, c) in &self.constraints {
@@ -353,8 +356,12 @@ impl ConstraintSystem<Scalar> for TreeCs {
         N: FnOnce() -> NR,
     {
         let name = name_fn().into();
+        let name_clone = name.clone();
         self.current_namespace.push(name);
-        let tree = Rc::new(RefCell::new(Tree::new_child(self.current.clone())));
+        let tree =
+            Rc::new
+            (RefCell::new
+             (Tree::new_child(self.current.clone(), name_clone)));
         (*self.current).borrow_mut().children.push(tree.clone());
         self.current = tree;
     }
