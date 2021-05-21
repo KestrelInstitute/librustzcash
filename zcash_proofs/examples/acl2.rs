@@ -430,6 +430,21 @@ where
     bellman::gadgets::blake2s::blake2s(&mut cs, &bits, &pers).unwrap();
 }
 
+fn make_ctedwards_montgomery<CS>(mut cs: CS) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
+    let x = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "x"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let y = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "y"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let x = bellman::gadgets::num::Num::from(x);
+    let y = bellman::gadgets::num::Num::from(y);
+    let point =
+        zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked(x, y);
+    point.into_edwards(&mut cs);
+}
+
 fn main() {
     let format = env::args().nth(1);
     let circuit = env::args().nth(2);
@@ -530,16 +545,13 @@ fn main() {
                     (&mut tcs, None).unwrap();
             }
         }
-        // Some("ctedwards-montgomery") => { // not working:
-        //     zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked
-        //         (bellman::gadgets::num::AllocatedNum::alloc
-        //          (&mut cs.namespace(|| "x"),
-        //           || Ok(bls12_381::Scalar::zero())).unwrap(),
-        //          bellman::gadgets::num::AllocatedNum::alloc
-        //          (&mut cs.namespace(|| "y"),
-        //           || Ok(bls12_381::Scalar::zero())).unwrap())
-        //         .into_edwards(&mut cs).unwrap();
-        // }
+        Some("ctedwards-montgomery") => {
+            if r1cs {
+                make_ctedwards_montgomery(&mut rcs);
+            } else {
+                make_ctedwards_montgomery(&mut tcs);
+            }
+        }
         Some("pedersen1") => {
             if r1cs {
                 make_pedersen(&mut rcs, 1);
