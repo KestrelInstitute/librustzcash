@@ -18,8 +18,8 @@ use crate::constants::{FixedGenerator, EDWARDS_D, MONTGOMERY_A, MONTGOMERY_SCALE
 
 #[derive(Clone)]
 pub struct EdwardsPoint {
-    u: AllocatedNum<bls12_381::Scalar>,
-    v: AllocatedNum<bls12_381::Scalar>,
+    pub u: AllocatedNum<bls12_381::Scalar>,
+    pub v: AllocatedNum<bls12_381::Scalar>,
 }
 
 /// Perform a fixed-base scalar multiplication with

@@ -445,6 +445,24 @@ where
     point.into_edwards(&mut cs);
 }
 
+fn make_ctedwards_add<CS>(mut cs: CS) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
+    let u1 = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "u1"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let v1 = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "v1"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let u2 = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "u2"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let v2 = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "v2"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let point1 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u1, v: v1};
+    let point2 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u2, v: v2};
+    point1.add(&mut cs, &point2);
+
+}
+
 fn main() {
     let format = env::args().nth(1);
     let circuit = env::args().nth(2);
@@ -550,6 +568,13 @@ fn main() {
                 make_ctedwards_montgomery(&mut rcs);
             } else {
                 make_ctedwards_montgomery(&mut tcs);
+            }
+        }
+        Some("ctedwards-add") => {
+            if r1cs {
+                make_ctedwards_add(&mut rcs);
+            } else {
+                make_ctedwards_add(&mut tcs);
             }
         }
         Some("pedersen1") => {
