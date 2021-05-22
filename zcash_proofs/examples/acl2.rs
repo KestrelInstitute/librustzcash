@@ -269,8 +269,8 @@ impl Tree {
         }
         write!(f, ")")?;
         for child in &self.children {
-            write!(f, " ");
-            (*child).borrow().fmt(f, inputs, aux);
+            write!(f, " ")?;
+            (*child).borrow().fmt(f, inputs, aux)?;
         }
         write!(f, ") ")?;
         Ok(())
@@ -301,7 +301,7 @@ impl fmt::Display for TreeCs {
         writeln!(f, ")")?;
 
         // Constraints.
-        (*self.tree).borrow().fmt(f, &self.inputs, &self.aux);
+        (*self.tree).borrow().fmt(f, &self.inputs, &self.aux)?;
 
         writeln!(f, ")")
     }
@@ -442,7 +442,30 @@ where
     let y = bellman::gadgets::num::Num::from(y);
     let point =
         zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked(x, y);
-    point.into_edwards(&mut cs);
+    point.into_edwards(&mut cs).unwrap();
+}
+
+fn make_montgomery_add<CS>(mut cs: CS) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
+    let x1 = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "x1"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let y1 = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "y1"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let x1 = bellman::gadgets::num::Num::from(x1);
+    let y1 = bellman::gadgets::num::Num::from(y1);
+    let point1 =
+        zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked(x1, y1);
+    let x2 = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "x2"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let y2 = bellman::gadgets::num::AllocatedNum::alloc
+        (&mut cs.namespace(|| "y2"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let x2 = bellman::gadgets::num::Num::from(x2);
+    let y2 = bellman::gadgets::num::Num::from(y2);
+    let point2 =
+        zcash_proofs::circuit::ecc::MontgomeryPoint::interpret_unchecked(x2, y2);
+    point1.add(&mut cs, &point2).unwrap();
 }
 
 fn make_ctedwards_add<CS>(mut cs: CS) -> ()
@@ -459,8 +482,7 @@ where
         (cs.namespace(|| "v2"), || Ok(bls12_381::Scalar::zero())).unwrap();
     let point1 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u1, v: v1 };
     let point2 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u2, v: v2 };
-    point1.add(&mut cs, &point2);
-
+    point1.add(&mut cs, &point2).unwrap();
 }
 
 fn make_small_order<CS>(mut cs: CS) -> ()
@@ -472,7 +494,7 @@ where
     let v = bellman::gadgets::num::AllocatedNum::alloc
         (cs.namespace(|| "v"), || Ok(bls12_381::Scalar::zero())).unwrap();
     let point = zcash_proofs::circuit::ecc::EdwardsPoint { u, v };
-    point.assert_not_small_order(&mut cs);
+    point.assert_not_small_order(&mut cs).unwrap();
 }
 
 fn make_ctedwards_mul_variable<CS>(mut cs: CS) -> ()
@@ -490,7 +512,7 @@ where
     let v = bellman::gadgets::num::AllocatedNum::alloc
         (cs.namespace(|| "v"), || Ok(bls12_381::Scalar::zero())).unwrap();
     let point = zcash_proofs::circuit::ecc::EdwardsPoint { u, v };
-    point.mul(&mut cs, &ks);
+    point.mul(&mut cs, &ks).unwrap();
 }
 
 fn main() {
@@ -605,6 +627,13 @@ fn main() {
                 make_ctedwards_montgomery(&mut rcs);
             } else {
                 make_ctedwards_montgomery(&mut tcs);
+            }
+        }
+        Some("montgomery-add") => {
+            if r1cs {
+                make_montgomery_add(&mut rcs);
+            } else {
+                make_montgomery_add(&mut tcs);
             }
         }
         Some("ctedwards-add") => {
