@@ -457,10 +457,22 @@ where
         (cs.namespace(|| "u2"), || Ok(bls12_381::Scalar::zero())).unwrap();
     let v2 = bellman::gadgets::num::AllocatedNum::alloc
         (cs.namespace(|| "v2"), || Ok(bls12_381::Scalar::zero())).unwrap();
-    let point1 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u1, v: v1};
-    let point2 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u2, v: v2};
+    let point1 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u1, v: v1 };
+    let point2 = zcash_proofs::circuit::ecc::EdwardsPoint { u: u2, v: v2 };
     point1.add(&mut cs, &point2);
 
+}
+
+fn make_small_order<CS>(mut cs: CS) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
+    let u = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "u"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let v = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "v"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let point = zcash_proofs::circuit::ecc::EdwardsPoint { u, v };
+    point.assert_not_small_order(&mut cs);
 }
 
 fn main() {
@@ -561,6 +573,13 @@ fn main() {
             } else {
                 zcash_proofs::circuit::ecc::EdwardsPoint::witness
                     (&mut tcs, None).unwrap();
+            }
+        }
+        Some("small-order") => {
+            if r1cs {
+                make_small_order(&mut rcs);
+            } else {
+                make_small_order(&mut tcs);
             }
         }
         Some("ctedwards-montgomery") => {
