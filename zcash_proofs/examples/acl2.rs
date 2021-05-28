@@ -70,11 +70,11 @@ impl fmt::Display for Acl2Cs {
         // In acl2 hex integers start with `#x`.
         writeln!(
             f,
-            "(PRIME . #x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001)"
+            "(R1CS::PRIME . #x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001)"
         )?;
 
         // Circuit variables
-        write!(f, "(VARS")?;
+        write!(f, "(R1CS::VARS")?;
         // ACL2 format doesn't include the constant 1.
         for var in self.inputs.iter().skip(1) {
             write!(f, " {}", var)?;
@@ -101,12 +101,12 @@ impl fmt::Display for Acl2Cs {
             write!(f, ")")?;
             Ok(())
         };
-        write!(f, "(CONSTRAINTS ")?;
+        write!(f, "(R1CS::CONSTRAINTS ")?;
         for (a, b, c) in &self.constraints {
             write!(f, "(")?;
-            write_lc(f, "A", a)?;
-            write_lc(f, "B", b)?;
-            write_lc(f, "C", c)?;
+            write_lc(f, "R1CS::A", a)?;
+            write_lc(f, "R1CS::B", b)?;
+            write_lc(f, "R1CS::C", c)?;
             writeln!(f, ")")?;
         }
         write!(f, ")")?;
@@ -259,12 +259,12 @@ impl Tree {
 
         write!(f, "(\"{}\"", self.name)?;
 
-        write!(f, " (CONSTRAINTS ")?;
+        write!(f, " (R1CS::CONSTRAINTS ")?;
         for (a, b, c) in &self.constraints {
             write!(f, "(")?;
-            write_lc(f, "A", a)?;
-            write_lc(f, "B", b)?;
-            write_lc(f, "C", c)?;
+            write_lc(f, "R1CS::A", a)?;
+            write_lc(f, "R1CS::B", b)?;
+            write_lc(f, "R1CS::C", c)?;
             writeln!(f, ")")?;
         }
         write!(f, ")")?;
@@ -286,11 +286,11 @@ impl fmt::Display for TreeCs {
         // In acl2 hex integers start with `#x`.
         writeln!(
             f,
-            "(PRIME . #x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001)"
+            "(R1CS::PRIME . #x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001)"
         )?;
 
         // Circuit variables
-        write!(f, "(VARS")?;
+        write!(f, "(R1CS::VARS")?;
         // ACL2 format doesn't include the constant 1.
         for var in self.inputs.iter().skip(1) {
             write!(f, " {}", var)?;
