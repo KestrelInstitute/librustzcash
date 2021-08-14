@@ -527,6 +527,20 @@ where
     point.repr(&mut cs).unwrap();
 }
 
+fn make_ctedwards_compress_with_check<CS>(mut cs: CS) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
+    let u = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "u"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    let v = bellman::gadgets::num::AllocatedNum::alloc
+        (cs.namespace(|| "v"), || Ok(bls12_381::Scalar::zero())).unwrap();
+    zcash_proofs::circuit::ecc::EdwardsPoint::interpret
+        (&mut cs, &u, &v).unwrap();
+    let point = zcash_proofs::circuit::ecc::EdwardsPoint { u, v };
+    point.repr(&mut cs).unwrap();
+}
+
 fn main() {
     let format = env::args().nth(1);
     let circuit = env::args().nth(2);
@@ -639,6 +653,13 @@ fn main() {
                 make_ctedwards_compress(&mut rcs);
             } else {
                 make_ctedwards_compress(&mut tcs);
+            }
+        }
+        Some("ctedwards-compress-with-check") => {
+            if r1cs {
+                make_ctedwards_compress_with_check(&mut rcs);
+            } else {
+                make_ctedwards_compress_with_check(&mut tcs);
             }
         }
         Some("ctedwards-montgomery") => {
