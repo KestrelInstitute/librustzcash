@@ -732,11 +732,46 @@ fn main() {
                 make_pedersen(&mut tcs, 15);
             }
         }
+        Some("pedersen60") => {
+            if r1cs {
+                make_pedersen(&mut rcs, 60);
+            } else {
+                make_pedersen(&mut tcs, 60);
+            }
+        }
+        Some("pedersen63") => {
+            if r1cs {
+                make_pedersen(&mut rcs, 63);
+            } else {
+                make_pedersen(&mut tcs, 63);
+            }
+        }
+        Some("pedersen66") => {
+            if r1cs {
+                make_pedersen(&mut rcs, 66);
+            } else {
+                make_pedersen(&mut tcs, 66);
+            }
+        }
+        Some("pedersen516") => {
+            if r1cs {
+                make_pedersen(&mut rcs, 516);
+            } else {
+                make_pedersen(&mut tcs, 516);
+            }
+        }
         Some("pedersen576") => {
             if r1cs {
                 make_pedersen(&mut rcs, 576);
             } else {
                 make_pedersen(&mut tcs, 576);
+            }
+        }
+        Some("pedersen582") => {
+            if r1cs {
+                make_pedersen(&mut rcs, 582);
+            } else {
+                make_pedersen(&mut tcs, 582);
             }
         }
         Some("blake2s-nf") => {
