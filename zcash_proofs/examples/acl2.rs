@@ -417,6 +417,22 @@ where
          &bits).unwrap();
 }
 
+fn make_pedersen_merkle<CS>(mut cs: CS, nbits: u32, arg: usize) -> ()
+where
+    CS: ConstraintSystem<bls12_381::Scalar>
+{
+    let mut bits = vec![];
+    for i in 0..nbits {
+        let bit = bellman::gadgets::boolean::AllocatedBit::alloc
+            (&mut cs.namespace(|| format!("bit{}", i)), None).unwrap();
+        bits.push(bellman::gadgets::boolean::Boolean::Is(bit));
+    }
+    zcash_proofs::circuit::pedersen_hash::pedersen_hash
+        (&mut cs,
+         zcash_primitives::pedersen_hash::Personalization::MerkleTree(arg),
+         &bits).unwrap();
+}
+
 fn make_blake2s<CS>(mut cs: CS, nbits: u32, pers: &[u8]) -> ()
 where
     CS: ConstraintSystem<bls12_381::Scalar>
@@ -772,6 +788,20 @@ fn main() {
                 make_pedersen(&mut rcs, 582);
             } else {
                 make_pedersen(&mut tcs, 582);
+            }
+        }
+        Some("pedersen510-merkle0") => {
+            if r1cs {
+                make_pedersen_merkle(&mut rcs, 510, 0);
+            } else {
+                make_pedersen_merkle(&mut tcs, 510, 0);
+            }
+        }
+        Some("pedersen510-merkle31") => {
+            if r1cs {
+                make_pedersen_merkle(&mut rcs, 510, 31);
+            } else {
+                make_pedersen_merkle(&mut tcs, 510, 31);
             }
         }
         Some("blake2s-nf") => {
